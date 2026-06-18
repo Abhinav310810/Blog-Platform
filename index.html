@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech & Insights Blog Portal</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>✍️ Tech & Insights Blog</h1>
+        <div id="auth-header">
+            <input type="text" id="username" placeholder="Username...">
+            <button onclick="login()">Login</button>
+        </div>
+        <div id="user-header" style="display:none;">
+            <span>Welcome, <strong id="display-user"></strong>!</span>
+            <button onclick="logout()" class="btn-danger">Logout</button>
+        </div>
+    </header>
+
+    <div class="container">
+        <div id="create-post-section" class="card" style="display:none;">
+            <h3>Create a New Blog Post</h3>
+            <input type="text" id="post-title" placeholder="Enter an interesting title...">
+            <textarea id="post-content" rows="4" placeholder="Write your blog content here..."></textarea>
+            <button onclick="createPost()">Publish Blog</button>
+        </div>
+
+        <h2 class="feed-title">Latest Articles</h2>
+        <div id="blog-feed"></div>
+    </div>
+
+    <script>
+        // Storage Keys
+        let currentUser = localStorage.getItem('blog_user');
+        let posts = JSON.parse(localStorage.getItem('blog_posts')) || [];
+
+        function checkAuth() {
+            if (currentUser) {
+                document.getElementById('auth-header').style.display = 'none';
+                document.getElementById('user-header').style.display = 'block';
+                document.getElementById('display-user').innerText = currentUser;
+                document.getElementById('create-post-section').style.display = 'block';
+            } else {
+                document.getElementById('auth-header').style.display = 'block';
+                document.getElementById('user-header').style.display = 'none';
+                document.getElementById('create-post-section').style.display = 'none';
+            }
+            renderPosts();
+        }
+
+        function login() {
+            const user = document.getElementById('username').value.trim();
+            if (user) {
+                localStorage.setItem('blog_user', user);
+                currentUser = user;
+                checkAuth();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('blog_user');
+            currentUser = null;
+            checkAuth();
+        }
+
+        function createPost() {
+            const title = document.getElementById('post-title').value.trim();
+            const content = document.getElementById('post-content').value.trim();
+            
+            if (title && content) {
+                const newPost = {
+                    id: Date.now(),
+                    author: currentUser,
+                    title: title,
+                    content: content,
+                    comments: []
+                };
+                posts.unshift(newPost); // Adds newest post to top
+                localStorage.setItem('blog_posts', JSON.stringify(posts));
+                
+                // Clear input boxes
+                document.getElementById('post-title').value = '';
+                document.getElementById('post-content').value = '';
+                renderPosts();
+            }
+        }
+
+        function deletePost(postId) {
+            posts = posts.filter(p => p.id !== postId);
+            localStorage.setItem('blog_posts', JSON.stringify(posts));
+            renderPosts();
+        }
+
+        function addComment(postId) {
+            if (!currentUser) {
+                alert('Please sign in at the top to drop a comment!');
+                return;
+            }
+            const commentInput = document.getElementById(`comment-in-${postId}`);
+            const text = commentInput.value.trim();
+            
+            if (text) {
+                posts = posts.map(post => {
+                    if (post.id === postId) {
+                        post.comments.push({
+                            user: currentUser,
+                            text: text
+                        });
+                    }
+                    return post;
+                });
+                localStorage.setItem('blog_posts', JSON.stringify(posts));
+                commentInput.value = '';
+                renderPosts();
+            }
+        }
+
+        function renderPosts() {
+            const feed = document.getElementById('blog-feed');
+            feed.innerHTML = '';
+
+            if (posts.length === 0) {
+                feed.innerHTML = `<p style="text-align:center; color:#777;">No articles posted yet. Be the first to publish one!</p>`;
+                return;
+            }
+
+            posts.forEach(post => {
+                const card = document.createElement('div');
+                card.className = 'card';
+                
+                // Check if current logged-in user owns this post
+                const deleteBtn = currentUser === post.author ? 
+                    `<button class="btn-danger btn-sm" onclick="deletePost(${post.id})">Delete Post</button>` : '';
+
+                // Build comments markup
+                let commentsHTML = '';
+                post.comments.forEach(c => {
+                    commentsHTML += `
+                        <div class="comment">
+                            <strong>@${c.user}:</strong> <span>${c.text}</span>
+                        </div>
+                    `;
+                });
+
+                card.innerHTML = `
+                    <div class="post-header">
+                        <h2>${post.title}</h2>
+                        ${deleteBtn}
+                    </div>
+                    <p class="meta">Published by <strong>${post.author}</strong></p>
+                    <p class="content">${post.content}</p>
+                    
+                    <hr>
+                    <h4>Comments (${post.comments.length})</h4>
+                    <div class="comments-section">${commentsHTML}</div>
+                    
+                    <div class="comment-box">
+                        <input type="text" id="comment-in-${post.id}" placeholder="Type a community comment...">
+                        <button onclick="addComment(${post.id})">Comment</button>
+                    </div>
+                `;
+                feed.appendChild(card);
+            });
+        }
+
+        // Run application setup
+        checkAuth();
+    </script>
+</body>
+</html>
